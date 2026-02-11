@@ -1,14 +1,23 @@
-function setAlarm() {
-    // iPhone対策：ボタンを押した瞬間に通知許可を再要求する
-    if (Notification.permission !== 'granted') {
-        Notification.requestPermission().then(permission => {
-            if (permission !== 'granted') {
-                alert('通知を許可しないとアラームが鳴りません。設定を確認してください。');
-                return;
-            }
-        });
-    }
+let alarms = [];
+let audioContext;
 
+// 【重要】iPhoneで音を出すための「鍵」を開ける関数
+function unlockAudio() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // 無音のバッファを作成して再生（これでiPhoneの制限が解ける）
+        const buffer = audioContext.createBuffer(1, 1, 22050);
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+        alert("音声を有効化しました。アラームが鳴るようになります。");
+    }
+}
+
+function setAlarm() {
+    unlockAudio(); // セット時に音の権限を奪取
+    
     const time = document.getElementById('alarmTime').value;
     const memo = document.getElementById('alarmMemo').value;
     if (!time) return alert("時間を設定してください");
@@ -16,5 +25,31 @@ function setAlarm() {
     const alarm = { time, memo, id: Date.now() };
     alarms.push(alarm);
     updateList();
-    alert("アラームを予約しました！このアプリを閉じずにスリープにしてください。");
 }
+
+function ringAlarm(memo) {
+    // ブラウザ標準のビープ音を鳴らす（または音声ファイルを再生）
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+    osc.type = 'sine';
+    osc.frequency.value = 880; // 音の高さ
+    gain.gain.setValueAtTime(1, audioContext.currentTime);
+    osc.start();
+    osc.stop(audioContext.currentTime + 2); // 2秒間鳴らす
+    
+    alert("【時間です！】\n" + memo);
+}
+
+setInterval(() => {
+    const now = new Date().toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'});
+    alarms.forEach((a, index) => {
+        if (a.time === now) {
+            ringAlarm(a.memo);
+            alarms.splice(index, 1);
+            updateList();
+        }
+    });
+}, 1000);
+

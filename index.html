@@ -2,77 +2,113 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>アラームメモ Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>カレンダー登録 Pro</title>
     <style>
-        body { font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background: #f0f2f5; color: #333; }
-        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; box-sizing: border-box; }
-        h2 { text-align: center; margin-top: 0; font-size: 1.5rem; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
-        input, textarea, button { width: 100%; margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 12px; box-sizing: border-box; font-size: 16px; -webkit-appearance: none; }
-        textarea { resize: none; }
-        button { background: #007aff; color: white; border: none; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        button:active { background: #0056b3; transform: scale(0.98); }
-        .status { text-align: center; font-size: 0.8rem; color: #666; }
+        body { font-family: -apple-system, sans-serif; background: #f4f7f9; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; justify-content: center; }
+        .card { background: white; padding: 30px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); width: 100%; max-width: 400px; box-sizing: border-box; }
+        h2 { text-align: center; color: #34c759; margin: 0 0 25px 0; font-size: 1.4rem; }
+        label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #666; }
+        input, textarea, button { width: 100%; margin-bottom: 18px; padding: 14px; border: 1px solid #e0e0e0; border-radius: 14px; box-sizing: border-box; font-size: 16px; -webkit-appearance: none; }
+        input[type="date"], input[type="time"] { font-size: 18px; font-weight: bold; text-align: center; background: #fafafa; border: 2px solid #eee; }
+        input:focus { border-color: #34c759; outline: none; background: white; }
+        textarea { resize: none; font-family: inherit; }
+        button { background: #34c759; color: white; border: none; font-weight: bold; cursor: pointer; padding: 18px; font-size: 18px; transition: 0.2s; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2); }
+        button:active { transform: scale(0.96); background: #2da94d; }
+        button:disabled { background: #ccc; box-shadow: none; }
+        .status { text-align: center; font-size: 13px; color: #999; margin-top: -5px; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h2>⏰ アラームメモ</h2>
+        <h2>📅 カレンダーに保存</h2>
         
-        <label>通知する時間</label>
-        <input type="time" id="alarmTime">
+        <label>日付</label>
+        <input type="date" id="eventDate">
         
-        <label>メモ内容</label>
-        <textarea id="alarmMemo" placeholder="通知に表示する内容を入力" rows="3"></textarea>
+        <label>開始時刻</label>
+        <input type="time" id="eventTime">
         
-        <button id="submitBtn" onclick="setAlarm()">カレンダーに予約する</button>
+        <label>予定の内容（メモ）</label>
+        <textarea id="eventMemo" placeholder="例：歯医者、会議など" rows="3"></textarea>
         
-        <p class="status">予約するとiPhoneのカレンダーに通知が届きます</p>
+        <button id="submitBtn" onclick="sendToCalendar()">Googleカレンダーに登録</button>
+        
+        <div id="statusMsg" class="status">日時を選択して保存を押してください</div>
     </div>
 
     <script>
-        async function setAlarm() {
-            const btn = document.getElementById('submitBtn');
-            const time = document.getElementById('alarmTime').value;
-            const memo = document.getElementById('alarmMemo').value;
-            
-            // 今日の日付を取得 (YYYY-MM-DD)
+        // ページ読み込み時に現在の日時をセット
+        window.onload = function() {
             const now = new Date();
-            const date = now.getFullYear() + "-" + (now.getMonth() + 1).toString().padStart(2, '0') + "-" + now.getDate().toString().padStart(2, '0');
+            
+            // 日付 (YYYY-MM-DD)
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            document.getElementById('eventDate').value = `${y}-${m}-${d}`;
+            
+            // 時刻 (HH:mm)
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('eventTime').value = `${hh}:${mm}`;
+        };
 
-            if (!time) {
-                alert("時間を入力してください");
+        async function sendToCalendar() {
+            const date = document.getElementById('eventDate').value;
+            const time = document.getElementById('eventTime').value;
+            const memo = document.getElementById('eventMemo').value || "無題の予定";
+            const btn = document.getElementById('submitBtn');
+            const status = document.getElementById('statusMsg');
+
+            // ★ここに以前作成したGASのURLを貼り付けてください★
+            const gasUrl = "https://script.google.com/macros/s/AKfycbyyW7NJ8Uq1hkOxqL_koUhxI8CuIFJGEckTQ1VEsRIiXTBeEBaGT4rSsXNJoV21q_0/exec";
+
+            if (!date || !time) {
+                alert("日付と時刻を入力してください");
                 return;
             }
 
-            // ボタンを無効化して連打防止
-            btn.disabled = true;
-            btn.innerText = "送信中...";
-            btn.style.background = "#ccc";
+            if (!gasUrl.includes("https://script.google.com")) {
+                alert("GASのURLが正しく設定されていません。コード内のURLを確認してください。");
+                return;
+            }
 
-            // ★ここにGASのURLを貼り付けてください★
-            const gasUrl = "https://script.google.com/macros/s/AKfycbyyW7NJ8Uq1hkOxqL_koUhxI8CuIFJGEckTQ1VEsRIiXTBeEBaGT4rSsXNJoV21q_0/exec";
+            btn.disabled = true;
+            btn.innerText = "登録中...";
+            status.innerText = "Googleカレンダーに送信しています...";
 
             try {
-                // GASにデータを送信 (no-corsモードで送信)
+                // GASにデータを送信
                 await fetch(gasUrl, {
                     method: "POST",
                     mode: "no-cors",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ time, memo, date })
+                    body: JSON.stringify({ date, time, memo })
                 });
 
-                alert("予約完了！\n指定の時間にカレンダー通知が届きます。");
-                document.getElementById('alarmMemo').value = "";
+                status.style.color = "#34c759";
+                status.innerText = "✔ カレンダーに登録完了しました！";
+                btn.innerText = "登録完了";
+                
+                // メモ欄だけリセット
+                document.getElementById('eventMemo').value = "";
+                
+                // 3秒後にボタンを元に戻す
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerText = "Googleカレンダーに登録";
+                    status.style.color = "#999";
+                    status.innerText = "続けて入力できます";
+                }, 3000);
+
             } catch (error) {
                 console.error(error);
-                alert("エラーが発生しました。GASの設定を確認してください。");
-            } finally {
+                alert("エラーが発生しました。ネット接続やGASの設定を確認してください。");
                 btn.disabled = false;
-                btn.innerText = "カレンダーに予約する";
-                btn.style.background = "#007aff";
+                btn.innerText = "再試行";
             }
         }
     </script>

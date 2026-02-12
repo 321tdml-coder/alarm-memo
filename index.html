@@ -1,92 +1,80 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>アラームメモ</title>
+    <title>アラームメモ Pro</title>
     <style>
-        body { font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background: #f0f2f5; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-        h2 { text-align: center; color: #333; }
-        input, textarea, button { width: 100%; margin-bottom: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        button { background: #ff4757; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:active { background: #ff6b81; transform: scale(0.98); }
-        .list-item { background: #fff; padding: 10px; margin-top: 10px; border-left: 5px solid #ff4757; border-radius: 4px; width: 100%; max-width: 400px; display: flex; justify-content: space-between; align-items: center; }
+        body { font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background: #f0f2f5; color: #333; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; box-sizing: border-box; }
+        h2 { text-align: center; margin-top: 0; font-size: 1.5rem; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
+        input, textarea, button { width: 100%; margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 12px; box-sizing: border-box; font-size: 16px; -webkit-appearance: none; }
+        textarea { resize: none; }
+        button { background: #007aff; color: white; border: none; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:active { background: #0056b3; transform: scale(0.98); }
+        .status { text-align: center; font-size: 0.8rem; color: #666; }
     </style>
 </head>
 <body>
+
     <div class="card">
         <h2>⏰ アラームメモ</h2>
+        
+        <label>通知する時間</label>
         <input type="time" id="alarmTime">
-        <textarea id="alarmMemo" placeholder="その時、何をする？" rows="3"></textarea>
-        <button onclick="setAlarm()">音声を有効化して予約</button>
+        
+        <label>メモ内容</label>
+        <textarea id="alarmMemo" placeholder="通知に表示する内容を入力" rows="3"></textarea>
+        
+        <button id="submitBtn" onclick="setAlarm()">カレンダーに予約する</button>
+        
+        <p class="status">予約するとiPhoneのカレンダーに通知が届きます</p>
     </div>
-    <div id="alarmList" style="width: 100%; max-width: 400px;"></div>
 
     <script>
-        let alarms = [];
-        let audioContext;
-
-        function setAlarm() {
-            // iPhoneの音声を解放
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const b = audioContext.createBuffer(1, 1, 22050);
-                const s = audioContext.createBufferSource();
-                s.buffer = b; s.connect(audioContext.destination); s.start(0);
-            }
-
+        async function setAlarm() {
+            const btn = document.getElementById('submitBtn');
             const time = document.getElementById('alarmTime').value;
             const memo = document.getElementById('alarmMemo').value;
             
+            // 今日の日付を取得 (YYYY-MM-DD)
+            const now = new Date();
+            const date = now.getFullYear() + "-" + (now.getMonth() + 1).toString().padStart(2, '0') + "-" + now.getDate().toString().padStart(2, '0');
+
             if (!time) {
                 alert("時間を入力してください");
                 return;
             }
 
-            const alarm = { time, memo, id: Date.now() };
-            alarms.push(alarm);
-            updateDisplay();
-            document.getElementById('alarmMemo').value = "";
-            alert("予約完了！画面を閉じずに待機してください。");
+            // ボタンを無効化して連打防止
+            btn.disabled = true;
+            btn.innerText = "送信中...";
+            btn.style.background = "#ccc";
+
+            // ★ここにGASのURLを貼り付けてください★
+            const gasUrl = "https://script.google.com/macros/s/AKfycbyyW7NJ8Uq1hkOxqL_koUhxI8CuIFJGEckTQ1VEsRIiXTBeEBaGT4rSsXNJoV21q_0/exec";
+
+            try {
+                // GASにデータを送信 (no-corsモードで送信)
+                await fetch(gasUrl, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ time, memo, date })
+                });
+
+                alert("予約完了！\n指定の時間にカレンダー通知が届きます。");
+                document.getElementById('alarmMemo').value = "";
+            } catch (error) {
+                console.error(error);
+                alert("エラーが発生しました。GASの設定を確認してください。");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "カレンダーに予約する";
+                btn.style.background = "#007aff";
+            }
         }
-
-        function updateDisplay() {
-            const container = document.getElementById('alarmList');
-            container.innerHTML = alarms.map(a => `
-                <div class="list-item">
-                    <span><b>${a.time}</b>: ${a.memo}</span>
-                    <button onclick="removeAlarm(${a.id})" style="width:auto; margin:0; padding:5px 10px; background:#ccc; font-size:12px;">削除</button>
-                </div>
-            `).join('');
-        }
-
-        function removeAlarm(id) {
-            alarms = alarms.filter(a => a.id !== id);
-            updateDisplay();
-        }
-
-        setInterval(() => {
-            const now = new Date();
-            const current = now.getHours().toString().padStart(2, '0') + ":" + 
-                            now.getMinutes().toString().padStart(2, '0');
-            
-            alarms.forEach((a, index) => {
-                if (a.time === current) {
-                    // ビープ音再生
-                    const o = audioContext.createOscillator();
-                    const g = audioContext.createGain();
-                    o.connect(g); g.connect(audioContext.destination);
-                    o.start(); g.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 2);
-                    o.stop(audioContext.currentTime + 2);
-
-                    alert("【時間です！】\n" + a.memo);
-                    alarms.splice(index, 1);
-                    updateDisplay();
-                }
-            });
-        }, 1000);
     </script>
 </body>
 </html>
